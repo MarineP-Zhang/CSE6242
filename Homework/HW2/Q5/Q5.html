@@ -1,73 +1,221 @@
 <!DOCTYPE html>
-<meta charset="utf-8">
+<html lang="en">
 <head>
-    <!-- add title -->
-    
-    <!-- import required libraries here -->
-    
+    <meta charset="utf-8">
+    <title>Wildlife Trafficking Choropleth</title>
+    <script type="text/javascript" src="../lib/d3.v5.min.js"></script>
+    <script type="text/javascript" src="../lib/d3-dsv.min.js"></script>
     <style>
-        /* define CSS rules here */
-    
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        
+        h1 {
+            text-align: center;
+        }
+        
+        #dropdown-container {
+            margin: 20px auto;
+            text-align: center;
+        }
+        
+        select {
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        
+        .country {
+            stroke: #fff;
+            stroke-width: 0.5;
+        }
+        
+        .legendQuant {
+            font-size: 12px;
+        }
+        
+        .d3-tip {
+            line-height: 1.4;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 12px;
+        }
+        
+        #username {
+            text-align: center;
+            margin-top: 20px;
+            font-style: italic;
+        }
     </style>
-
-    <title></title>
 </head>
 
-
 <body>
-    <!-- Add heading for the visualization -->
+    <h1>Wildlife Trafficking Incidents by Country</h1>
     
-    <!-- Create dropdown element here. Options should be added after reading in wildlife_trafficking file, they should not be created here.-->
-
+    <div id="dropdown-container">
+        <label for="year-select">Select Year: </label>
+        <select id="year-select"></select>
+    </div>
+    
+    <svg id="map"></svg>
+    
+    <div id="username">gburdell3</div>
 
     <script>
-    
-        // enter code to define margin and dimensions for svg
+        // Define margin and dimensions for svg
+        const margin = {top: 20, right: 20, bottom: 20, left: 20};
+        const width = 960 - margin.left - margin.right;
+        const height = 600 - margin.top - margin.bottom;
         
-        // enter code to create svg
+        // Create svg
+        const svg = d3.select("#map")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
         
-        // enter code to create color scale
+        // Create color scale (will be updated based on data)
+        let colorScale = d3.scaleQuantile();
         
-        // enter code to define tooltip
+        // Define tooltip
+        const tip = d3.tip()
+            .attr('class', 'd3-tip')
+            .offset([-10, 0])
+            .html(function(d) { return d; });
         
-        // enter code to define projection and path required for Choropleth
-        // For grading, set the name of functions for projection and path as "projection" and "path"
-        // var projection = 
-        // var path =
+        svg.call(tip);
+        
+        // Define projection and path
+        const projection = d3.geoNaturalEarth1()
+            .scale(150)
+            .translate([width / 2, height / 2]);
+        
+        const path = d3.geoPath().projection(projection);
 
-
-        // define any other global variables 
-
+        // Global variables
+        let worldData;
+        let traffickingData;
+        let dataByYear = {};
+        
         Promise.all([
-            // enter code to read files
-            
-        ]).then(
-            // enter code to call ready() with required arguments
-            
-        );
+            d3.json("world_countries.json"),
+            d3.csv("wildlife_trafficking.csv")
+        ]).then(function(files) {
+            ready(null, files[0], files[1]);
+        });
         
-        // this function should be called once the data from files have been read
-        // world: topojson from world_countries.json
-        // traffickingData: data from wildlife_trafficking.csv
-        
-        function ready(error, world, traffickingData) {
-            // enter code to extract required fields from traffickingData
-
-            // enter code to append the years to the dropdown
+        function ready(error, world, trafficking) {
+            if (error) throw error;
             
-            // event listener for the dropdown. Update choropleth and legend when selection changes. Call createMapAndLegend() with required arguments.
+            worldData = world;
+            traffickingData = trafficking;
             
-            // create Choropleth with default option. Call createMapAndLegend() with required arguments. 
+            // Extract years and organize data
+            const years = [...new Set(trafficking.map(d => +d.Year))].sort((a, b) => a - b);
+            
+            // Organize data by year
+            trafficking.forEach(d => {
+                const year = +d.Year;
+                if (!dataByYear[year]) {
+                    dataByYear[year] = {};
+                }
+                dataByYear[year][d["Country of Incident"]] = {
+                    incidents: +d.Number_of_Incidents,
+                    fine: +d.Average_Fine,
+                    imprisonment: +d.Average_Imprisonment
+                };
+            });
+            
+            // Populate dropdown
+            const dropdown = d3.select("#year-select");
+            dropdown.selectAll("option")
+                .data(years)
+                .enter()
+                .append("option")
+                .attr("value", d => d)
+                .text(d => d);
+            
+            // Event listener for dropdown
+            dropdown.on("change", function() {
+                const selectedYear = +this.value;
+                createMapAndLegend(world, trafficking, selectedYear);
+            });
+            
+            // Create initial map with first year
+            createMapAndLegend(world, trafficking, years[0]);
         }
 
-        // this function should create a Choropleth and legend using the world and traffickingData arguments for a selectedYear
-        // also use this function to update Choropleth and legend when a different year is selected from the dropdown
-        function createMapAndLegend(world, traffickingData, selectedYear){ 
-        
+        function createMapAndLegend(world, trafficking, selectedYear) {
+            // Clear existing map and legend
+            svg.selectAll("*").remove();
+            svg.call(tip);
             
+            // Get data for selected year
+            const yearData = dataByYear[selectedYear] || {};
+            
+            // Get all incident counts for the year for quantile scale
+            const incidentCounts = Object.values(yearData).map(d => d.incidents);
+            
+            // Create quantile scale with 4 colors
+            colorScale = d3.scaleQuantile()
+                .domain(incidentCounts)
+                .range(["#fee5d9", "#fcae91", "#fb6a4a", "#cb181d"]);
+            
+            // Draw countries
+            svg.selectAll(".country")
+                .data(world.features)
+                .enter()
+                .append("path")
+                .attr("class", "country")
+                .attr("d", path)
+                .attr("fill", function(d) {
+                    const countryName = d.properties.name;
+                    const data = yearData[countryName];
+                    return data ? colorScale(data.incidents) : "#ccc";
+                })
+                .on("mouseover", function(d) {
+                    const countryName = d.properties.name;
+                    const data = yearData[countryName];
+                    
+                    let tooltipHtml = `<strong>${countryName}</strong><br/>`;
+                    tooltipHtml += `Year: ${selectedYear}<br/>`;
+                    
+                    if (data) {
+                        tooltipHtml += `Number of Incidents: ${data.incidents}<br/>`;
+                        tooltipHtml += `Average Fine: $${data.fine.toFixed(2)}<br/>`;
+                        tooltipHtml += `Average Imprisonment: ${data.imprisonment.toFixed(2)} years`;
+                    } else {
+                        tooltipHtml += `Number of Incidents: N/A<br/>`;
+                        tooltipHtml += `Average Fine: N/A<br/>`;
+                        tooltipHtml += `Average Imprisonment: N/A`;
+                    }
+                    
+                    tip.show(tooltipHtml, this);
+                })
+                .on("mouseout", function() {
+                    tip.hide();
+                });
+            
+            // Create legend
+            if (incidentCounts.length > 0) {
+                const legendG = svg.append("g")
+                    .attr("class", "legendQuant")
+                    .attr("transform", `translate(${width - 150}, ${height - 200})`);
+                
+                const legend = d3.legendColor()
+                    .labelFormat(d3.format(".2f"))
+                    .scale(colorScale)
+                    .shapePadding(5)
+                    .shapeWidth(30)
+                    .shapeHeight(20)
+                    .labelOffset(5);
+                
+                legendG.call(legend);
+            }
         }
     </script>
-
 </body>
-
 </html>

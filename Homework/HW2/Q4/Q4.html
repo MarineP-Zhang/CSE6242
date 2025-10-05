@@ -1,10 +1,46 @@
 <!DOCTYPE html>
-
+<html>
 <head>
   <title>Games Rating: 2015 - 2019</title>
   <meta charset="utf-8">
   <style>
-    <!-- define CSS rules -->
+    /* CSS for axis and grid lines */
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #000;
+      shape-rendering: crispEdges;
+    }
+
+    /* Style for grid lines in the bar chart */
+    .grid line {
+      stroke: #ddd;
+      stroke-opacity: 0.7;
+      shape-rendering: crispEdges;
+    }
+
+    .grid path {
+      stroke-width: 0;
+    }
+
+    /* Cursor hint for interactivity */
+    .data-circle {
+      cursor: pointer;
+    }
+
+    /* Ensure chart titles are centered relative to their SVG */
+    #line_chart_title,
+    #credit {
+      text-anchor: middle;
+    }
+
+    #bar_chart_title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: bold;
+      margin-top: 20px;
+      display: none;
+    }
   </style>
 </head>
 
@@ -12,54 +48,372 @@
   <script type="text/javascript" src="../lib/d3.v5.min.js"></script>
   <script type="text/javascript" src="../lib/d3-dsv.min.js"></script>
 
-  <!-- Example hiding an element -->
-  <!-- <g id="" style"display:none;" /> -->
-
-  <!-- Example of styling an element -->
-  <!-- svg_element.style()-->
-
   <script>
-    // define the dimensions and margins for the line chart
-    // Use the Margin Convention referenced in the HW document to layout your graph
+    // --- Configuration ---
+    // Line Chart Dimensions (LCH) - Margin Convention
+    const LCH_margin = { top: 60, right: 100, bottom: 40, left: 50 };
+    const LCH_width = 800 - LCH_margin.left - LCH_margin.right;
+    const LCH_height = 400 - LCH_margin.top - LCH_margin.bottom;
 
+    // Bar Chart Dimensions (BCH) - Margin Convention
+    const BCH_margin = { top: 70, right: 20, bottom: 50, left: 200 };
+    const BCH_width = 800 - BCH_margin.left - BCH_margin.right;
+    const BCH_height = 300 - BCH_margin.top - BCH_margin.bottom;
 
-    // define the dimensions and margins for the bar chart
+    // Years and Ratings to plot
+    const YEARS = [2015, 2016, 2017, 2018, 2019];
+    const MIN_RATING = 0;
+    const MAX_RATING = 10;
 
+    // Color scale for lines (one for each year)
+    const color = d3.scaleOrdinal(d3.schemeCategory10)
+      .domain(YEARS);
 
-    // append svg element to the body of the page
-    // set dimensions and position of the svg element
-    let svg = d3
+    // --- Line Chart Setup ---
+    let LCH_svg = d3
       .select("body")
       .append("svg")
       .attr("id", "line_chart")
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom)
+      .attr("width", LCH_width + LCH_margin.left + LCH_margin.right)
+      .attr("height", LCH_height + LCH_margin.top + LCH_margin.bottom);
+
+    let container = LCH_svg
       .append("g")
       .attr("id", "container")
-      .attr("transform",
-        "translate(" + margin.left + "," + margin.top + ")");
+      .attr("transform", `translate(${LCH_margin.left},${LCH_margin.top})`);
 
-    // Fetch the data
-	var pathToCsv = "";
+    // --- Bar Chart Title (div) ---
+    let barChartTitleDiv = d3
+      .select("body")
+      .append("div")
+      .attr("id", "bar_chart_title");
 
+    // --- Bar Chart Setup (Initially Hidden) ---
+    let BCH_svg = d3
+      .select("body")
+      .append("svg")
+      .attr("id", "bar_chart")
+      .attr("width", BCH_width + BCH_margin.left + BCH_margin.right)
+      .attr("height", BCH_height + BCH_margin.top + BCH_margin.bottom)
+      .style("display", "none");
+
+    let container2 = BCH_svg
+      .append("g")
+      .attr("id", "container_2")
+      .attr("transform", `translate(${BCH_margin.left},${BCH_margin.top})`);
+
+    // Placeholder for scales
+    let LCH_x, LCH_y;
+    let gamesByYearRating;
+
+    // Line generator
+    const line = d3.line()
+      .x(d => LCH_x(d.floor_rating))
+      .y(d => LCH_y(d.count));
+
+    // --- Data Loading and Visualization ---
+    var pathToCsv = "average-rating.csv";
 
     d3.dsv(",", pathToCsv, function (d) {
       return {
-        // format data attributes if required
+        name: d.name,
+        year: +d.year,
+        average_rating: +d.average_rating,
+        users_rated: +d.users_rated,
+        floor_rating: Math.floor(+d.average_rating)  // This will be 0-9, never 10
+      };
+    })
+      .then(function (data) {
+        // 1. Filter data for required years (2015-2019)
+        const filteredData = data.filter(d => YEARS.includes(d.year));
+
+        // 2. Nested Data for Bar Chart Lookup
+        gamesByYearRating = d3.nest()
+          .key(d => d.year)
+          .key(d => d.floor_rating)
+          .entries(filteredData);
+
+        // 3. Nested Data for Line Chart
+        const countByYearRating = d3.nest()
+          .key(d => d.year)
+          .key(d => d.floor_rating)
+          .rollup(v => v.length)
+          .entries(filteredData)
+          .map(yearGroup => {
+            return {
+              year: +yearGroup.key,
+              ratings: yearGroup.values.map(ratingGroup => ({
+                floor_rating: +ratingGroup.key,
+                count: ratingGroup.value
+              }))
+            };
+          });
+
+        // 4. Fill in missing data points (0s) and calculate maxCount
+        let LCH_data = [];
+        let maxCount = 0;
+
+        YEARS.forEach(year => {
+          let yearData = countByYearRating.find(d => d.year === year);
+          let ratingsMap = yearData ? new Map(yearData.ratings.map(d => [d.floor_rating, d.count])) : new Map();
+
+          let fullYearRatings = [];
+          // Fill ratings from 0 to 9 (floor of ratings will never be 10)
+          for (let r = 0; r <= 9; r++) {
+            let count = ratingsMap.get(r) || 0;
+            fullYearRatings.push({ floor_rating: r, count: count });
+            if (count > maxCount) maxCount = count;
+          }
+
+          LCH_data.push({ year: year, ratings: fullYearRatings });
+        });
+
+        // 5. Define Scales for Line Chart
+        LCH_x = d3.scaleLinear()
+          .domain([0, 9])
+          .range([0, LCH_width]);
+
+        LCH_y = d3.scaleLinear()
+          .domain([0, maxCount])
+          .range([LCH_height, 0]);
+
+        // 6. Create group for lines
+        const linesGroup = container.append("g").attr("id", "lines");
+
+        // Draw the paths
+        linesGroup.selectAll("path")
+          .data(LCH_data)
+          .enter()
+          .append("path")
+          .attr("fill", "none")
+          .attr("stroke", d => color(d.year))
+          .attr("stroke-width", 2)
+          .attr("d", d => line(d.ratings));
+
+        // 7. Create group for circles
+        const circlesGroup = container.append("g").attr("id", "circles");
+
+        // Flatten data for circles
+        let circleData = [];
+        LCH_data.forEach(yearObj => {
+          yearObj.ratings.forEach(rating => {
+            circleData.push({
+              year: yearObj.year,
+              floor_rating: rating.floor_rating,
+              count: rating.count
+            });
+          });
+        });
+
+        // Draw circles
+        circlesGroup.selectAll("circle")
+          .data(circleData)
+          .enter()
+          .append("circle")
+          .attr("class", "data-circle")
+          .attr("cx", d => LCH_x(d.floor_rating))
+          .attr("cy", d => LCH_y(d.count))
+          .attr("r", 5)
+          .attr("fill", d => color(d.year))
+          .attr("stroke", "white")
+          .attr("stroke-width", 1)
+          .attr("data-year", d => d.year)
+          .attr("data-rating", d => d.floor_rating)
+          .on("mouseover", handleMouseOver)
+          .on("mouseout", handleMouseOut);
+
+        // 8. Draw Axes
+        // X-Axis
+        container.append("g")
+          .attr("id", "x-axis-lines")
+          .attr("class", "axis")
+          .attr("transform", `translate(0,${LCH_height})`)
+          .call(d3.axisBottom(LCH_x).tickFormat(d3.format("d")));
+
+        // Y-Axis
+        container.append("g")
+          .attr("id", "y-axis-lines")
+          .attr("class", "axis")
+          .call(d3.axisLeft(LCH_y));
+
+        // X-Axis Label
+        container.append("text")
+          .attr("transform", `translate(${LCH_width / 2}, ${LCH_height + LCH_margin.bottom - 5})`)
+          .style("text-anchor", "middle")
+          .text("Rating");
+
+        // Y-Axis Label
+        container.append("text")
+          .attr("transform", "rotate(-90)")
+          .attr("y", 0 - LCH_margin.left)
+          .attr("x", 0 - (LCH_height / 2))
+          .attr("dy", "1em")
+          .style("text-anchor", "middle")
+          .text("Count");
+
+        // 9. Title
+        container.append("text")
+          .attr("id", "line_chart_title")
+          .attr("x", LCH_width / 2)
+          .attr("y", 0 - (LCH_margin.top / 2) + 5)
+          .style("font-size", "18px")
+          .style("font-weight", "bold")
+          .text("Board games by Rating 2015-2019");
+
+        // Username
+        container.append("text")
+          .attr("id", "credit")
+          .attr("x", LCH_width / 2)
+          .attr("y", 0 - (LCH_margin.top / 2) + 25)
+          .style("font-size", "12px")
+          .text("mzhang773");
+
+        // 10. Legend
+        const legend = container.append("g")
+          .attr("id", "legend");
+
+        const legendItems = legend.selectAll("g")
+          .data(YEARS)
+          .enter()
+          .append("g")
+          .attr("transform", (d, i) => `translate(${LCH_width + 10}, ${i * 20})`);
+
+        legendItems.append("circle")
+          .attr("cx", 9)
+          .attr("cy", 9)
+          .attr("r", 9)
+          .style("fill", color);
+
+        legendItems.append("text")
+          .attr("x", 24)
+          .attr("y", 9)
+          .attr("dy", ".35em")
+          .style("text-anchor", "start")
+          .text(d => d);
+      });
+
+    // --- Interactivity and Bar Chart Functions ---
+    function drawBarChart(year, rating, games) {
+      // Sort games by users_rated descending and take top 5
+      const top5Games = games.sort((a, b) => b.users_rated - a.users_rated).slice(0, 5);
+
+      // Define Scales for Bar Chart
+      const maxUsers = d3.max(top5Games, d => d.users_rated);
+
+      const BCH_x = d3.scaleLinear()
+        .domain([0, maxUsers])
+        .nice()
+        .range([0, BCH_width]);
+
+      const BCH_y = d3.scaleBand()
+        .domain(top5Games.map(d => d.name))
+        .range([0, BCH_height])
+        .padding(0.1);
+
+      // Show bar chart and title
+      BCH_svg.style("display", "block");
+      barChartTitleDiv.style("display", "block");
+      barChartTitleDiv.text(`Top 5 Most Rated Games of ${year} with Rating ${rating}`);
+
+      // Clear previous content
+      container2.selectAll("*").remove();
+
+      // Create bars group
+      const barsGroup = container2.append("g").attr("id", "bars");
+
+      // Draw bars
+      barsGroup.selectAll("rect")
+        .data(top5Games)
+        .enter()
+        .append("rect")
+        .attr("x", 0)
+        .attr("y", d => BCH_y(d.name))
+        .attr("width", d => BCH_x(d.users_rated))
+        .attr("height", BCH_y.bandwidth())
+        .attr("fill", "teal");
+
+      // X-Axis
+      container2.append("g")
+        .attr("id", "x-axis-bars")
+        .attr("class", "axis")
+        .attr("transform", `translate(0,${BCH_height})`)
+        .call(d3.axisBottom(BCH_x).ticks(5).tickFormat(d3.format(".2s")));
+
+      // Y-Axis
+      container2.append("g")
+        .attr("id", "y-axis-bars")
+        .attr("class", "axis")
+        .call(d3.axisLeft(BCH_y).tickFormat(d => d.substring(0, 10)));
+
+      // X-Axis Label
+      container2.append("text")
+        .attr("id", "bar_x_axis_label")
+        .attr("transform", `translate(${BCH_width / 2}, ${BCH_height + BCH_margin.bottom - 5})`)
+        .style("text-anchor", "middle")
+        .text("Number of users");
+
+      // Y-Axis Label
+      container2.append("text")
+        .attr("id", "bar_y_axis_label")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0 - BCH_margin.left + 15)
+        .attr("x", 0 - (BCH_height / 2))
+        .style("text-anchor", "middle")
+        .text("Games");
+
+      // Grid Lines
+      container2.append("g")
+        .attr("class", "grid")
+        .attr("transform", `translate(0,${BCH_height})`)
+        .call(d3.axisBottom(BCH_x)
+          .tickSize(-BCH_height)
+          .tickFormat("")
+        );
+    }
+
+    function handleMouseOver(d, i) {
+      // Enlarge and change color
+      d3.select(this)
+        .transition()
+        .duration(50)
+        .attr("r", 8)
+        .attr("fill", "black");
+
+      const selectedYear = d.year;
+      const selectedRating = d.floor_rating;
+      const count = d.count;
+
+      // Find the raw game data
+      const yearData = gamesByYearRating.find(yg => yg.key == selectedYear);
+      let games = [];
+      if (yearData) {
+        const ratingData = yearData.values.find(rg => rg.key == selectedRating);
+        if (ratingData) {
+          games = ratingData.values;
+        }
       }
-    }).then(function (data) {
-      console.log(data); // you should see the data in your browser's developer tools console
 
-      /* Create bar plot using data from csv */
+      // Display bar chart only if count > 0
+      if (count > 0 && games.length > 0) {
+        drawBarChart(selectedYear, selectedRating, games);
+      } else {
+        BCH_svg.style("display", "none");
+        barChartTitleDiv.style("display", "none");
+      }
+    }
 
+    function handleMouseOut(d, i) {
+      // Return to original size and color
+      d3.select(this)
+        .transition()
+        .duration(50)
+        .attr("r", 5)
+        .attr("fill", color(d.year));
 
-
-
-    }).catch(function (error) {
-      console.log(error);
-    });
-
-
+      // Hide bar chart and title
+      BCH_svg.style("display", "none");
+      barChartTitleDiv.style("display", "none");
+    }
   </script>
-
 </body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>D3 Page Template</title>
+        <script type="text/javascript" src="../lib/d3.v5.min.js"></script>
+        <style>
+            div.bar{
+                display: inline-block;
+                width: 20px;
+                height: 75px;
+                background-color: teal;
+                margin-right: 2px;
+            }
+        </style>
+    </head>
+    <body>
+        <script type="text/javascript">
+            var dataset = [1,2,3,4,5];
+            d3.select("body").selectAll("div")
+                .data(dataset)
+                .enter()
+                .append("div")
+                .attr("class", "bar")
+                .style("height", function(d){
+                    return d * 10 + "px";
+                });
+        </script>
+    </body>
+</html>

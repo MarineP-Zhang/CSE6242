@@ -1,13 +1,698 @@
 <!DOCTYPE html>
-
+<html>
 <head>
   <title>Line Charts</title>
   <meta charset="utf-8">
-
   <script type="text/javascript" src="../lib/d3.v5.min.js"></script>
-
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .chart-container {
+      margin-bottom: 50px;
+    }
+    .axis-label {
+      font-size: 14px;
+    }
+    .chart-title {
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .line {
+      fill: none;
+      stroke-width: 1.5;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .game-label {
+      font-size: 12px;
+    }
+    .rank-circle {
+      stroke-width: 1.5;
+    }
+    .rank-text {
+      font-size: 10px;
+      text-anchor: middle;
+      dominant-baseline: central;
+      fill: white;
+      font-weight: bold;
+    }
+    .legend-rect {
+      fill: white;
+      stroke: #999;
+      stroke-width: 1;
+    }
+    .legend-text {
+      font-size: 12px;
+    }
+    .username {
+      font-size: 12px;
+      fill: #666;
+    }
+  </style>
 </head>
-
 <body>
-  <div id='signature'>gburdell3</div>
+  <div id='signature'>mzhang773</div>
+
+  <script>
+    d3.csv('boardgame_ratings.csv').then(function(data) {
+      
+      const parseDate = d3.timeParse("%Y-%m-%d");
+      const formatDate = d3.timeFormat("%b %y");
+      
+      const startDate = new Date(2016, 10, 1);
+      const endDate = new Date(2020, 7, 31);
+      
+      const games = ['Catan', 'Dominion', 'Codenames', 'Terraforming Mars', 
+                     'Gloomhaven', 'Magic: The Gathering', 'Dixit', 'Monopoly'];
+      
+      data.forEach(d => {
+        d.date = parseDate(d.date);
+        games.forEach(game => {
+          d[game] = +d[game + '=count'];
+          d[game + '_rank'] = +d[game + '=rank'];
+        });
+      });
+      
+      const filteredData = data.filter(d => d.date >= startDate && d.date <= endDate);
+      
+      createChartA(filteredData, games);
+      createChartB(filteredData, games);
+      createChartC1(filteredData, games);
+      createChartC2(filteredData, games);
+      
+      function createChartA(data, games) {
+        const margin = {top: 40, right: 120, bottom: 60, left: 60};
+        const width = 900 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+        
+        const svg = d3.select("body")
+          .append("svg")
+          .attr("id", "svg-a")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom);
+        
+        const plot = svg.append("g")
+          .attr("id", "plot-a")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        plot.append("text")
+          .attr("id", "title-a")
+          .attr("class", "chart-title")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", -15)
+          .text("Number of Ratings 2016-2020");
+        const xScale = d3.scaleTime()
+          .domain(d3.extent(data, d => d.date))
+          .range([0, width]);
+        
+        const yScale = d3.scaleLinear()
+          .domain([0, d3.max(data, d => d3.max(games, game => d[game]))])
+          .range([height, 0]);
+        
+        const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+        
+        const xAxis = d3.axisBottom(xScale)
+          .ticks(d3.timeMonth.every(3))
+          .tickFormat(formatDate);
+        
+        const yAxis = d3.axisLeft(yScale);
+        
+        const xAxisGroup = plot.append("g")
+          .attr("id", "x-axis-a")
+          .attr("transform", `translate(0,${height})`)
+          .call(xAxis);
+        
+        xAxisGroup.append("text")
+          .attr("class", "axis-label")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", 45)
+          .attr("fill", "black")
+          .text("Month");
+        
+        const yAxisGroup = plot.append("g")
+          .attr("id", "y-axis-a")
+          .call(yAxis);
+        
+        yAxisGroup.append("text")
+          .attr("class", "axis-label")
+          .attr("text-anchor", "middle")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -height / 2)
+          .attr("y", -45)
+          .attr("fill", "black")
+          .text("Num of Ratings");
+        
+        
+        const line = d3.line()
+          .defined(d => !isNaN(d.value))
+          .x(d => xScale(d.date))
+          .y(d => yScale(d.value));
+        
+        const linesGroup = plot.append("g").attr("id", "lines-a");
+        
+        games.forEach((game, i) => {
+          const gameData = data.map(d => ({
+            date: d.date,
+            value: d[game]
+          })).filter(d => !isNaN(d.value));
+          
+          linesGroup.append("path")
+            .datum(gameData)
+            .attr("class", "line")
+            .attr("d", line)
+            .attr("stroke", colorScale(i))
+            .attr("fill", "none");
+          
+          const lastPoint = gameData[gameData.length - 1];
+          linesGroup.append("text")
+            .attr("class", "game-label")
+            .attr("x", xScale(lastPoint.date) + 5)
+            .attr("y", yScale(lastPoint.value) + 4)
+            .attr("fill", colorScale(i))
+            .text(game);
+        });
+      }
+      
+      function createChartB(data, games) {
+        const margin = {top: 40, right: 120, bottom: 60, left: 60};
+        const width = 900 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+        
+        const svg = d3.select("body")
+          .append("svg")
+          .attr("id", "svg-b")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom);
+        
+        const plot = svg.append("g")
+          .attr("id", "plot-b")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+        
+        plot.append("text")
+          .attr("id", "title-b")
+          .attr("class", "chart-title")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", -15)
+          .text("Number of Ratings 2016-2020 with Rankings");
+        
+        const xScale = d3.scaleTime()
+          .domain(d3.extent(data, d => d.date))
+          .range([0, width]);
+        
+        const yScale = d3.scaleLinear()
+          .domain([0, d3.max(data, d => d3.max(games, game => d[game]))])
+          .range([height, 0]);
+        
+        const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+        
+        const xAxis = d3.axisBottom(xScale)
+          .ticks(d3.timeMonth.every(3))
+          .tickFormat(formatDate);
+        
+        const yAxis = d3.axisLeft(yScale);
+        
+        const xAxisGroup = plot.append("g")
+          .attr("id", "x-axis-b")
+          .attr("transform", `translate(0,${height})`)
+          .call(xAxis);
+        
+        xAxisGroup.append("text")
+          .attr("class", "axis-label")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", 45)
+          .attr("fill", "black")
+          .text("Month");
+        
+        const yAxisGroup = plot.append("g")
+          .attr("id", "y-axis-b")
+          .call(yAxis);
+        
+        yAxisGroup.append("text")
+          .attr("class", "axis-label")
+          .attr("text-anchor", "middle")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -height / 2)
+          .attr("y", -45)
+          .attr("fill", "black")
+          .text("Num of Ratings");
+        
+        const line = d3.line()
+          .defined(d => !isNaN(d.value))
+          .x(d => xScale(d.date))
+          .y(d => yScale(d.value));
+        
+        const rankedGames = ['Catan', 'Codenames', 'Terraforming Mars', 'Gloomhaven'];
+        const linesGroup = plot.append("g").attr("id", "lines-b");
+        const symbolsGroup = plot.append("g").attr("id", "symbols-b");
+        
+        games.forEach((game, i) => {
+          const gameData = data.map(d => ({
+            date: d.date,
+            value: d[game],
+            rank: d[game + '_rank']
+          })).filter(d => !isNaN(d.value));
+          
+          linesGroup.append("path")
+            .datum(gameData)
+            .attr("class", "line")
+            .attr("d", line)
+            .attr("stroke", colorScale(i))
+            .attr("fill", "none");
+          
+          if (rankedGames.includes(game)) {
+            // Filter for data from January 2017 onwards, every 3 months
+            // Data starts from 2016-11-01 (index 0)
+            // We want index 2, 5, 8, 11, 14... (Jan, Apr, Jul, Oct...)
+            const jan2017 = new Date(2017, 0, 1);
+            const rankedData = [];
+            
+            for (let j = 0; j < gameData.length; j++) {
+              const d = gameData[j];
+              if (d.date < jan2017) continue;
+              
+              // Calculate months from 2016-11-01
+              const startDate = new Date(2016, 10, 1);
+              const monthsDiff = (d.date.getFullYear() - startDate.getFullYear()) * 12 + 
+                                 d.date.getMonth() - startDate.getMonth();
+              
+              // We want months 2, 5, 8, 11, 14... (indices that give remainder 2 when divided by 3)
+              if (monthsDiff % 3 === 2) {
+                rankedData.push(d);
+              }
+            }
+            
+            rankedData.forEach(d => {
+              symbolsGroup.append("circle")
+                .attr("class", "rank-circle")
+                .attr("cx", xScale(d.date))
+                .attr("cy", yScale(d.value))
+                .attr("r", 10)
+                .attr("stroke", colorScale(i))
+                .attr("fill", colorScale(i));
+              
+              symbolsGroup.append("text")
+                .attr("class", "rank-text")
+                .attr("x", xScale(d.date))
+                .attr("y", yScale(d.value))
+                .text(d.rank);
+            });
+          }
+          
+          const lastPoint = gameData[gameData.length - 1];
+          linesGroup.append("text")
+            .attr("class", "game-label")
+            .attr("x", xScale(lastPoint.date) + 5)
+            .attr("y", yScale(lastPoint.value) + 4)
+            .attr("fill", colorScale(i))
+            .text(game);
+        });
+        
+        const legendX = width - 160;
+        const legendY = height - 40;
+        
+        plot.append("rect")
+          .attr("class", "legend-rect")
+          .attr("x", legendX - 10)
+          .attr("y", legendY - 20)
+          .attr("width", 170)
+          .attr("height", 40)
+          .attr("rx", 3);
+        
+        plot.append("circle")
+          .attr("class", "rank-circle")
+          .attr("cx", legendX + 10)
+          .attr("cy", legendY)
+          .attr("r", 10)
+          .attr("stroke", "#333");
+        
+        plot.append("text")
+          .attr("class", "rank-text")
+          .attr("x", legendX + 10)
+          .attr("y", legendY)
+          .text("rank");
+        
+        plot.append("text")
+          .attr("class", "legend-text")
+          .attr("text-anchor", "start")
+          .attr("x", legendX + 30)
+          .attr("y", legendY + 4)
+          .text("BoardGameGeek Rank");
+      }
+      
+      function createChartC1(data, games) {
+        const margin = {top: 40, right: 120, bottom: 60, left: 60};
+        const width = 900 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+        
+        const svg = d3.select("body")
+          .append("svg")
+          .attr("id", "svg-c-1")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom);
+        
+        const plot = svg.append("g")
+          .attr("id", "plot-c-1")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+        
+        plot.append("text")
+          .attr("id", "title-c-1")
+          .attr("class", "chart-title")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", -15)
+          .text("Number of Ratings 2016-2020 (Square root Scale)");
+
+        const xScale = d3.scaleTime()
+          .domain(d3.extent(data, d => d.date))
+          .range([0, width]);
+        
+        const yScale = d3.scaleSqrt()
+          .domain([0, d3.max(data, d => d3.max(games, game => d[game]))])
+          .range([height, 0]);
+        
+        const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+        
+        const xAxis = d3.axisBottom(xScale)
+          .ticks(d3.timeMonth.every(3))
+          .tickFormat(formatDate);
+        
+        const yAxis = d3.axisLeft(yScale);
+        
+        const xAxisGroup = plot.append("g")
+          .attr("id", "x-axis-c-1")
+          .attr("transform", `translate(0,${height})`)
+          .call(xAxis);
+        
+        xAxisGroup.append("text")
+          .attr("class", "axis-label")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", 45)
+          .attr("fill", "black")
+          .text("Month");
+        
+        const yAxisGroup = plot.append("g")
+          .attr("id", "y-axis-c-1")
+          .call(yAxis);
+        
+        yAxisGroup.append("text")
+          .attr("class", "axis-label")
+          .attr("text-anchor", "middle")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -height / 2)
+          .attr("y", -45)
+          .attr("fill", "black")
+          .text("Num of Ratings");
+        
+        
+        const line = d3.line()
+          .defined(d => !isNaN(d.value))
+          .x(d => xScale(d.date))
+          .y(d => yScale(d.value));
+        
+        const rankedGames = ['Catan', 'Codenames', 'Terraforming Mars', 'Gloomhaven'];
+        const linesGroup = plot.append("g").attr("id", "lines-c-1");
+        const symbolsGroup = plot.append("g").attr("id", "symbols-c-1");
+        
+        games.forEach((game, i) => {
+          const gameData = data.map(d => ({
+            date: d.date,
+            value: d[game],
+            rank: d[game + '_rank']
+          })).filter(d => !isNaN(d.value));
+          
+          linesGroup.append("path")
+            .datum(gameData)
+            .attr("class", "line")
+            .attr("d", line)
+            .attr("stroke", colorScale(i))
+            .attr("fill", "none");
+          
+          if (rankedGames.includes(game)) {
+            // Filter for data from January 2017 onwards, every 3 months
+            // Data starts from 2016-11-01 (index 0)
+            // We want index 2, 5, 8, 11, 14... (Jan, Apr, Jul, Oct...)
+            const jan2017 = new Date(2017, 0, 1);
+            const rankedData = [];
+            
+            for (let j = 0; j < gameData.length; j++) {
+              const d = gameData[j];
+              if (d.date < jan2017) continue;
+              
+              // Calculate months from 2016-11-01
+              const startDate = new Date(2016, 10, 1);
+              const monthsDiff = (d.date.getFullYear() - startDate.getFullYear()) * 12 + 
+                                 d.date.getMonth() - startDate.getMonth();
+              
+              // We want months 2, 5, 8, 11, 14... (indices that give remainder 2 when divided by 3)
+              if (monthsDiff % 3 === 2) {
+                rankedData.push(d);
+              }
+            }
+            
+            rankedData.forEach(d => {
+              symbolsGroup.append("circle")
+                .attr("class", "rank-circle")
+                .attr("cx", xScale(d.date))
+                .attr("cy", yScale(d.value))
+                .attr("r", 10)
+                .attr("stroke", colorScale(i))
+                .attr("fill", colorScale(i));
+              
+              symbolsGroup.append("text")
+                .attr("class", "rank-text")
+                .attr("x", xScale(d.date))
+                .attr("y", yScale(d.value))
+                .text(d.rank);
+            });
+          }
+          
+          const lastPoint = gameData[gameData.length - 1];
+          linesGroup.append("text")
+            .attr("class", "game-label")
+            .attr("x", xScale(lastPoint.date) + 5)
+            .attr("y", yScale(lastPoint.value) + 4)
+            .attr("fill", colorScale(i))
+            .text(game);
+        });
+        
+        const legendX = width - 160;
+        const legendY = height - 40;
+        
+        plot.append("rect")
+          .attr("class", "legend-rect")
+          .attr("x", legendX - 10)
+          .attr("y", legendY - 20)
+          .attr("width", 170)
+          .attr("height", 40)
+          .attr("rx", 3);
+        
+        plot.append("circle")
+          .attr("class", "rank-circle")
+          .attr("cx", legendX + 10)
+          .attr("cy", legendY)
+          .attr("r", 10)
+          .attr("stroke", "#333");
+        
+        plot.append("text")
+          .attr("class", "rank-text")
+          .attr("x", legendX + 10)
+          .attr("y", legendY)
+          .text("rank");
+        
+        plot.append("text")
+          .attr("class", "legend-text")
+          .attr("text-anchor", "start")
+          .attr("x", legendX + 30)
+          .attr("y", legendY + 4)
+          .text("BoardGameGeek Rank");
+      }
+      
+      function createChartC2(data, games) {
+        const margin = {top: 40, right: 120, bottom: 60, left: 60};
+        const width = 900 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+        
+        const svg = d3.select("body")
+          .append("svg")
+          .attr("id", "svg-c-2")
+          .attr("width", width + margin.left + margin.right)
+          .attr("height", height + margin.top + margin.bottom);
+        
+        const plot = svg.append("g")
+          .attr("id", "plot-c-2")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
+        
+        plot.append("text")
+          .attr("id", "title-c-2")
+          .attr("class", "chart-title")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", -15)
+          .text("Number of Ratings 2016-2020 (Log Scale)");
+
+        const xScale = d3.scaleTime()
+          .domain(d3.extent(data, d => d.date))
+          .range([0, width]);
+        
+        const yScale = d3.scaleLog()
+          .domain([1, d3.max(data, d => d3.max(games, game => d[game]))])
+          .range([height, 0]);
+        
+        const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+        
+        const xAxis = d3.axisBottom(xScale)
+          .ticks(d3.timeMonth.every(3))
+          .tickFormat(formatDate);
+        
+        const yAxis = d3.axisLeft(yScale);
+        
+        const xAxisGroup = plot.append("g")
+          .attr("id", "x-axis-c-2")
+          .attr("transform", `translate(0,${height})`)
+          .call(xAxis);
+        
+        xAxisGroup.append("text")
+          .attr("class", "axis-label")
+          .attr("text-anchor", "middle")
+          .attr("x", width / 2)
+          .attr("y", 45)
+          .attr("fill", "black")
+          .text("Month");
+        
+        const yAxisGroup = plot.append("g")
+          .attr("id", "y-axis-c-2")
+          .call(yAxis);
+        
+        yAxisGroup.append("text")
+          .attr("class", "axis-label")
+          .attr("text-anchor", "middle")
+          .attr("transform", "rotate(-90)")
+          .attr("x", -height / 2)
+          .attr("y", -45)
+          .attr("fill", "black")
+          .text("Num of Ratings");
+        
+        
+        const line = d3.line()
+          .defined(d => !isNaN(d.value) && d.value > 0)
+          .x(d => xScale(d.date))
+          .y(d => yScale(d.value));
+        
+        const rankedGames = ['Catan', 'Codenames', 'Terraforming Mars', 'Gloomhaven'];
+        const linesGroup = plot.append("g").attr("id", "lines-c-2");
+        const symbolsGroup = plot.append("g").attr("id", "symbols-c-2");
+        
+        games.forEach((game, i) => {
+          const gameData = data.map(d => ({
+            date: d.date,
+            value: d[game],
+            rank: d[game + '_rank']
+          })).filter(d => !isNaN(d.value) && d.value > 0);
+          
+          linesGroup.append("path")
+            .datum(gameData)
+            .attr("class", "line")
+            .attr("d", line)
+            .attr("stroke", colorScale(i))
+            .attr("fill", "none");
+          
+          if (rankedGames.includes(game)) {
+            // Filter for data from January 2017 onwards, every 3 months
+            // Data starts from 2016-11-01 (index 0)
+            // We want index 2, 5, 8, 11, 14... (Jan, Apr, Jul, Oct...)
+            const jan2017 = new Date(2017, 0, 1);
+            const rankedData = [];
+            
+            for (let j = 0; j < gameData.length; j++) {
+              const d = gameData[j];
+              if (d.date < jan2017) continue;
+              
+              // Calculate months from 2016-11-01
+              const startDate = new Date(2016, 10, 1);
+              const monthsDiff = (d.date.getFullYear() - startDate.getFullYear()) * 12 + 
+                                 d.date.getMonth() - startDate.getMonth();
+              
+              // We want months 2, 5, 8, 11, 14... (indices that give remainder 2 when divided by 3)
+              if (monthsDiff % 3 === 2) {
+                rankedData.push(d);
+              }
+            }
+            
+            rankedData.forEach(d => {
+              symbolsGroup.append("circle")
+                .attr("class", "rank-circle")
+                .attr("cx", xScale(d.date))
+                .attr("cy", yScale(d.value))
+                .attr("r", 10)
+                .attr("stroke", colorScale(i))
+                .attr("fill", colorScale(i));
+              
+              symbolsGroup.append("text")
+                .attr("class", "rank-text")
+                .attr("x", xScale(d.date))
+                .attr("y", yScale(d.value))
+                .text(d.rank);
+            });
+          }
+          
+          const lastPoint = gameData[gameData.length - 1];
+          linesGroup.append("text")
+            .attr("class", "game-label")
+            .attr("x", xScale(lastPoint.date) + 5)
+            .attr("y", yScale(lastPoint.value) + 4)
+            .attr("fill", colorScale(i))
+            .text(game);
+        });
+        
+        const legendX = width - 160;
+        const legendY = height - 40;
+        
+        plot.append("rect")
+          .attr("class", "legend-rect")
+          .attr("x", legendX - 10)
+          .attr("y", legendY - 20)
+          .attr("width", 170)
+          .attr("height", 40)
+          .attr("rx", 3);
+        
+        plot.append("circle")
+          .attr("class", "rank-circle")
+          .attr("cx", legendX + 10)
+          .attr("cy", legendY)
+          .attr("r", 10)
+          .attr("stroke", "#333");
+        
+        plot.append("text")
+          .attr("class", "rank-text")
+          .attr("x", legendX + 10)
+          .attr("y", legendY)
+          .text("rank");
+        
+        plot.append("text")
+          .attr("class", "legend-text")
+          .attr("text-anchor", "start")
+          .attr("x", legendX + 30)
+          .attr("y", legendY + 4)
+          .text("BoardGameGeek Rank");
+        
+        plot.append("text")
+          .attr("class", "username")
+          .attr("text-anchor", "end")
+          .attr("x", width)
+          .attr("y", height + 45)
+          .text("mzhang773");
+      }
+      
+    }).catch(function(error) {
+      console.error('Error loading the CSV file:', error);
+    });
+  </script>
 </body>
+</html>
