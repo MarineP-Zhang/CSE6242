@@ -120,7 +120,7 @@
         year: +d.year,
         average_rating: +d.average_rating,
         users_rated: +d.users_rated,
-        floor_rating: Math.floor(+d.average_rating)  // This will be 0-9, never 10
+        floor_rating: Math.floor(+d.average_rating)
       };
     })
       .then(function (data) {
@@ -190,7 +190,21 @@
           .attr("stroke-width", 2)
           .attr("d", d => line(d.ratings));
 
-        // 7. Create group for circles
+        // 7. Draw Axes (before circles so circles are on top)
+        // X-Axis
+        container.append("g")
+          .attr("id", "x-axis-lines")
+          .attr("class", "axis")
+          .attr("transform", `translate(0,${LCH_height})`)
+          .call(d3.axisBottom(LCH_x).tickFormat(d3.format("d")));
+
+        // Y-Axis
+        container.append("g")
+          .attr("id", "y-axis-lines")
+          .attr("class", "axis")
+          .call(d3.axisLeft(LCH_y));
+
+        // 8. Create group for circles (after axes)
         const circlesGroup = container.append("g").attr("id", "circles");
 
         // Flatten data for circles
@@ -222,20 +236,7 @@
           .on("mouseover", handleMouseOver)
           .on("mouseout", handleMouseOut);
 
-        // 8. Draw Axes
-        // X-Axis
-        container.append("g")
-          .attr("id", "x-axis-lines")
-          .attr("class", "axis")
-          .attr("transform", `translate(0,${LCH_height})`)
-          .call(d3.axisBottom(LCH_x).tickFormat(d3.format("d")));
-
-        // Y-Axis
-        container.append("g")
-          .attr("id", "y-axis-lines")
-          .attr("class", "axis")
-          .call(d3.axisLeft(LCH_y));
-
+        // 9. Axis Labels
         // X-Axis Label
         container.append("text")
           .attr("transform", `translate(${LCH_width / 2}, ${LCH_height + LCH_margin.bottom - 5})`)
@@ -251,24 +252,24 @@
           .style("text-anchor", "middle")
           .text("Count");
 
-        // 9. Title
-        container.append("text")
+        // 10. Title (should be child of SVG, not container)
+        LCH_svg.append("text")
           .attr("id", "line_chart_title")
-          .attr("x", LCH_width / 2)
-          .attr("y", 0 - (LCH_margin.top / 2) + 5)
+          .attr("x", (LCH_width + LCH_margin.left + LCH_margin.right) / 2)
+          .attr("y", 25)
           .style("font-size", "18px")
           .style("font-weight", "bold")
           .text("Board games by Rating 2015-2019");
 
-        // Username
-        container.append("text")
+        // Username (should be child of SVG, not container)
+        LCH_svg.append("text")
           .attr("id", "credit")
-          .attr("x", LCH_width / 2)
-          .attr("y", 0 - (LCH_margin.top / 2) + 25)
+          .attr("x", (LCH_width + LCH_margin.left + LCH_margin.right) / 2)
+          .attr("y", 45)
           .style("font-size", "12px")
           .text("mzhang773");
 
-        // 10. Legend
+        // 11. Legend
         const legend = container.append("g")
           .attr("id", "legend");
 
@@ -302,9 +303,9 @@
 
       const BCH_x = d3.scaleLinear()
         .domain([0, maxUsers])
-        .nice()
         .range([0, BCH_width]);
 
+      // Y-axis: already sorted descending, top game at top
       const BCH_y = d3.scaleBand()
         .domain(top5Games.map(d => d.name))
         .range([0, BCH_height])
@@ -321,6 +322,15 @@
       // Create bars group
       const barsGroup = container2.append("g").attr("id", "bars");
 
+      // Draw grid lines FIRST (so bars appear on top)
+      container2.append("g")
+        .attr("class", "grid")
+        .attr("transform", `translate(0,${BCH_height})`)
+        .call(d3.axisBottom(BCH_x)
+          .tickSize(-BCH_height)
+          .tickFormat("")
+        );
+
       // Draw bars
       barsGroup.selectAll("rect")
         .data(top5Games)
@@ -330,14 +340,14 @@
         .attr("y", d => BCH_y(d.name))
         .attr("width", d => BCH_x(d.users_rated))
         .attr("height", BCH_y.bandwidth())
-        .attr("fill", "teal");
+        .attr("fill", "#c51b8a");  // Magenta/purple color
 
       // X-Axis
       container2.append("g")
         .attr("id", "x-axis-bars")
         .attr("class", "axis")
         .attr("transform", `translate(0,${BCH_height})`)
-        .call(d3.axisBottom(BCH_x).ticks(5).tickFormat(d3.format(".2s")));
+        .call(d3.axisBottom(BCH_x).ticks(5));
 
       // Y-Axis
       container2.append("g")
@@ -348,7 +358,7 @@
       // X-Axis Label
       container2.append("text")
         .attr("id", "bar_x_axis_label")
-        .attr("transform", `translate(${BCH_width / 2}, ${BCH_height + BCH_margin.bottom - 5})`)
+        .attr("transform", `translate(${BCH_width / 2}, ${BCH_height + BCH_margin.bottom - 10})`)
         .style("text-anchor", "middle")
         .text("Number of users");
 
@@ -360,24 +370,14 @@
         .attr("x", 0 - (BCH_height / 2))
         .style("text-anchor", "middle")
         .text("Games");
-
-      // Grid Lines
-      container2.append("g")
-        .attr("class", "grid")
-        .attr("transform", `translate(0,${BCH_height})`)
-        .call(d3.axisBottom(BCH_x)
-          .tickSize(-BCH_height)
-          .tickFormat("")
-        );
     }
 
     function handleMouseOver(d, i) {
-      // Enlarge and change color
+      // Enlarge circle
       d3.select(this)
         .transition()
         .duration(50)
-        .attr("r", 8)
-        .attr("fill", "black");
+        .attr("r", 8);
 
       const selectedYear = d.year;
       const selectedRating = d.floor_rating;
@@ -396,19 +396,16 @@
       // Display bar chart only if count > 0
       if (count > 0 && games.length > 0) {
         drawBarChart(selectedYear, selectedRating, games);
-      } else {
-        BCH_svg.style("display", "none");
-        barChartTitleDiv.style("display", "none");
       }
+      // If count is 0, still enlarge the circle but don't show bar chart
     }
 
     function handleMouseOut(d, i) {
-      // Return to original size and color
+      // Return to original size
       d3.select(this)
         .transition()
         .duration(50)
-        .attr("r", 5)
-        .attr("fill", color(d.year));
+        .attr("r", 5);
 
       // Hide bar chart and title
       BCH_svg.style("display", "none");

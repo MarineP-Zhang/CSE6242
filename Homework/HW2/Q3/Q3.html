@@ -93,17 +93,18 @@
           .attr("width", width + margin.left + margin.right)
           .attr("height", height + margin.top + margin.bottom);
         
+        svg.append("text")
+          .attr("id", "title-a")
+          .attr("class", "chart-title")
+          .attr("text-anchor", "middle")
+          .attr("x", (width + margin.left + margin.right) / 2)
+          .attr("y", 25)
+          .text("Number of Ratings 2016-2020");
+        
         const plot = svg.append("g")
           .attr("id", "plot-a")
           .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        plot.append("text")
-          .attr("id", "title-a")
-          .attr("class", "chart-title")
-          .attr("text-anchor", "middle")
-          .attr("x", width / 2)
-          .attr("y", -15)
-          .text("Number of Ratings 2016-2020");
         const xScale = d3.scaleTime()
           .domain(d3.extent(data, d => d.date))
           .range([0, width]);
@@ -119,6 +120,8 @@
           .tickFormat(formatDate);
         
         const yAxis = d3.axisLeft(yScale);
+        
+        const linesGroup = plot.append("g").attr("id", "lines-a");
         
         const xAxisGroup = plot.append("g")
           .attr("id", "x-axis-a")
@@ -146,13 +149,10 @@
           .attr("fill", "black")
           .text("Num of Ratings");
         
-        
         const line = d3.line()
           .defined(d => !isNaN(d.value))
           .x(d => xScale(d.date))
           .y(d => yScale(d.value));
-        
-        const linesGroup = plot.append("g").attr("id", "lines-a");
         
         games.forEach((game, i) => {
           const gameData = data.map(d => ({
@@ -188,17 +188,17 @@
           .attr("width", width + margin.left + margin.right)
           .attr("height", height + margin.top + margin.bottom);
         
-        const plot = svg.append("g")
-          .attr("id", "plot-b")
-          .attr("transform", `translate(${margin.left},${margin.top})`);
-        
-        plot.append("text")
+        svg.append("text")
           .attr("id", "title-b")
           .attr("class", "chart-title")
           .attr("text-anchor", "middle")
-          .attr("x", width / 2)
-          .attr("y", -15)
+          .attr("x", (width + margin.left + margin.right) / 2)
+          .attr("y", 25)
           .text("Number of Ratings 2016-2020 with Rankings");
+        
+        const plot = svg.append("g")
+          .attr("id", "plot-b")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
         
         const xScale = d3.scaleTime()
           .domain(d3.extent(data, d => d.date))
@@ -215,6 +215,8 @@
           .tickFormat(formatDate);
         
         const yAxis = d3.axisLeft(yScale);
+        
+        const linesGroup = plot.append("g").attr("id", "lines-b");
         
         const xAxisGroup = plot.append("g")
           .attr("id", "x-axis-b")
@@ -248,7 +250,6 @@
           .y(d => yScale(d.value));
         
         const rankedGames = ['Catan', 'Codenames', 'Terraforming Mars', 'Gloomhaven'];
-        const linesGroup = plot.append("g").attr("id", "lines-b");
         const symbolsGroup = plot.append("g").attr("id", "symbols-b");
         
         games.forEach((game, i) => {
@@ -266,9 +267,6 @@
             .attr("fill", "none");
           
           if (rankedGames.includes(game)) {
-            // Filter for data from January 2017 onwards, every 3 months
-            // Data starts from 2016-11-01 (index 0)
-            // We want index 2, 5, 8, 11, 14... (Jan, Apr, Jul, Oct...)
             const jan2017 = new Date(2017, 0, 1);
             const rankedData = [];
             
@@ -276,12 +274,10 @@
               const d = gameData[j];
               if (d.date < jan2017) continue;
               
-              // Calculate months from 2016-11-01
               const startDate = new Date(2016, 10, 1);
               const monthsDiff = (d.date.getFullYear() - startDate.getFullYear()) * 12 + 
                                  d.date.getMonth() - startDate.getMonth();
               
-              // We want months 2, 5, 8, 11, 14... (indices that give remainder 2 when divided by 3)
               if (monthsDiff % 3 === 2) {
                 rankedData.push(d);
               }
@@ -313,10 +309,11 @@
             .text(game);
         });
         
+        const legendGroup = plot.append("g").attr("id", "legend-b");
         const legendX = width - 160;
         const legendY = height - 40;
         
-        plot.append("rect")
+        legendGroup.append("rect")
           .attr("class", "legend-rect")
           .attr("x", legendX - 10)
           .attr("y", legendY - 20)
@@ -324,20 +321,21 @@
           .attr("height", 40)
           .attr("rx", 3);
         
-        plot.append("circle")
+        legendGroup.append("circle")
           .attr("class", "rank-circle")
           .attr("cx", legendX + 10)
           .attr("cy", legendY)
           .attr("r", 10)
-          .attr("stroke", "#333");
+          .attr("stroke", "#333")
+          .attr("fill", "#333");
         
-        plot.append("text")
+        legendGroup.append("text")
           .attr("class", "rank-text")
           .attr("x", legendX + 10)
           .attr("y", legendY)
           .text("rank");
         
-        plot.append("text")
+        legendGroup.append("text")
           .attr("class", "legend-text")
           .attr("text-anchor", "start")
           .attr("x", legendX + 30)
@@ -356,17 +354,17 @@
           .attr("width", width + margin.left + margin.right)
           .attr("height", height + margin.top + margin.bottom);
         
-        const plot = svg.append("g")
-          .attr("id", "plot-c-1")
-          .attr("transform", `translate(${margin.left},${margin.top})`);
-        
-        plot.append("text")
+        svg.append("text")
           .attr("id", "title-c-1")
           .attr("class", "chart-title")
           .attr("text-anchor", "middle")
-          .attr("x", width / 2)
-          .attr("y", -15)
+          .attr("x", (width + margin.left + margin.right) / 2)
+          .attr("y", 25)
           .text("Number of Ratings 2016-2020 (Square root Scale)");
+        
+        const plot = svg.append("g")
+          .attr("id", "plot-c-1")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
 
         const xScale = d3.scaleTime()
           .domain(d3.extent(data, d => d.date))
@@ -383,6 +381,8 @@
           .tickFormat(formatDate);
         
         const yAxis = d3.axisLeft(yScale);
+        
+        const linesGroup = plot.append("g").attr("id", "lines-c-1");
         
         const xAxisGroup = plot.append("g")
           .attr("id", "x-axis-c-1")
@@ -410,14 +410,12 @@
           .attr("fill", "black")
           .text("Num of Ratings");
         
-        
         const line = d3.line()
           .defined(d => !isNaN(d.value))
           .x(d => xScale(d.date))
           .y(d => yScale(d.value));
         
         const rankedGames = ['Catan', 'Codenames', 'Terraforming Mars', 'Gloomhaven'];
-        const linesGroup = plot.append("g").attr("id", "lines-c-1");
         const symbolsGroup = plot.append("g").attr("id", "symbols-c-1");
         
         games.forEach((game, i) => {
@@ -435,9 +433,6 @@
             .attr("fill", "none");
           
           if (rankedGames.includes(game)) {
-            // Filter for data from January 2017 onwards, every 3 months
-            // Data starts from 2016-11-01 (index 0)
-            // We want index 2, 5, 8, 11, 14... (Jan, Apr, Jul, Oct...)
             const jan2017 = new Date(2017, 0, 1);
             const rankedData = [];
             
@@ -445,12 +440,10 @@
               const d = gameData[j];
               if (d.date < jan2017) continue;
               
-              // Calculate months from 2016-11-01
               const startDate = new Date(2016, 10, 1);
               const monthsDiff = (d.date.getFullYear() - startDate.getFullYear()) * 12 + 
                                  d.date.getMonth() - startDate.getMonth();
               
-              // We want months 2, 5, 8, 11, 14... (indices that give remainder 2 when divided by 3)
               if (monthsDiff % 3 === 2) {
                 rankedData.push(d);
               }
@@ -482,10 +475,11 @@
             .text(game);
         });
         
+        const legendGroup = plot.append("g").attr("id", "legend-c-1");
         const legendX = width - 160;
         const legendY = height - 40;
         
-        plot.append("rect")
+        legendGroup.append("rect")
           .attr("class", "legend-rect")
           .attr("x", legendX - 10)
           .attr("y", legendY - 20)
@@ -493,20 +487,21 @@
           .attr("height", 40)
           .attr("rx", 3);
         
-        plot.append("circle")
+        legendGroup.append("circle")
           .attr("class", "rank-circle")
           .attr("cx", legendX + 10)
           .attr("cy", legendY)
           .attr("r", 10)
-          .attr("stroke", "#333");
+          .attr("stroke", "#333")
+          .attr("fill", "#333");
         
-        plot.append("text")
+        legendGroup.append("text")
           .attr("class", "rank-text")
           .attr("x", legendX + 10)
           .attr("y", legendY)
           .text("rank");
         
-        plot.append("text")
+        legendGroup.append("text")
           .attr("class", "legend-text")
           .attr("text-anchor", "start")
           .attr("x", legendX + 30)
@@ -525,17 +520,17 @@
           .attr("width", width + margin.left + margin.right)
           .attr("height", height + margin.top + margin.bottom);
         
-        const plot = svg.append("g")
-          .attr("id", "plot-c-2")
-          .attr("transform", `translate(${margin.left},${margin.top})`);
-        
-        plot.append("text")
+        svg.append("text")
           .attr("id", "title-c-2")
           .attr("class", "chart-title")
           .attr("text-anchor", "middle")
-          .attr("x", width / 2)
-          .attr("y", -15)
+          .attr("x", (width + margin.left + margin.right) / 2)
+          .attr("y", 25)
           .text("Number of Ratings 2016-2020 (Log Scale)");
+        
+        const plot = svg.append("g")
+          .attr("id", "plot-c-2")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
 
         const xScale = d3.scaleTime()
           .domain(d3.extent(data, d => d.date))
@@ -552,6 +547,8 @@
           .tickFormat(formatDate);
         
         const yAxis = d3.axisLeft(yScale);
+        
+        const linesGroup = plot.append("g").attr("id", "lines-c-2");
         
         const xAxisGroup = plot.append("g")
           .attr("id", "x-axis-c-2")
@@ -579,14 +576,12 @@
           .attr("fill", "black")
           .text("Num of Ratings");
         
-        
         const line = d3.line()
           .defined(d => !isNaN(d.value) && d.value > 0)
           .x(d => xScale(d.date))
           .y(d => yScale(d.value));
         
         const rankedGames = ['Catan', 'Codenames', 'Terraforming Mars', 'Gloomhaven'];
-        const linesGroup = plot.append("g").attr("id", "lines-c-2");
         const symbolsGroup = plot.append("g").attr("id", "symbols-c-2");
         
         games.forEach((game, i) => {
@@ -604,9 +599,6 @@
             .attr("fill", "none");
           
           if (rankedGames.includes(game)) {
-            // Filter for data from January 2017 onwards, every 3 months
-            // Data starts from 2016-11-01 (index 0)
-            // We want index 2, 5, 8, 11, 14... (Jan, Apr, Jul, Oct...)
             const jan2017 = new Date(2017, 0, 1);
             const rankedData = [];
             
@@ -614,12 +606,10 @@
               const d = gameData[j];
               if (d.date < jan2017) continue;
               
-              // Calculate months from 2016-11-01
               const startDate = new Date(2016, 10, 1);
               const monthsDiff = (d.date.getFullYear() - startDate.getFullYear()) * 12 + 
                                  d.date.getMonth() - startDate.getMonth();
               
-              // We want months 2, 5, 8, 11, 14... (indices that give remainder 2 when divided by 3)
               if (monthsDiff % 3 === 2) {
                 rankedData.push(d);
               }
@@ -651,10 +641,11 @@
             .text(game);
         });
         
+        const legendGroup = plot.append("g").attr("id", "legend-c-2");
         const legendX = width - 160;
         const legendY = height - 40;
         
-        plot.append("rect")
+        legendGroup.append("rect")
           .attr("class", "legend-rect")
           .attr("x", legendX - 10)
           .attr("y", legendY - 20)
@@ -662,31 +653,32 @@
           .attr("height", 40)
           .attr("rx", 3);
         
-        plot.append("circle")
+        legendGroup.append("circle")
           .attr("class", "rank-circle")
           .attr("cx", legendX + 10)
           .attr("cy", legendY)
           .attr("r", 10)
-          .attr("stroke", "#333");
+          .attr("stroke", "#333")
+          .attr("fill", "#333");
         
-        plot.append("text")
+        legendGroup.append("text")
           .attr("class", "rank-text")
           .attr("x", legendX + 10)
           .attr("y", legendY)
           .text("rank");
         
-        plot.append("text")
+        legendGroup.append("text")
           .attr("class", "legend-text")
           .attr("text-anchor", "start")
           .attr("x", legendX + 30)
           .attr("y", legendY + 4)
           .text("BoardGameGeek Rank");
         
-        plot.append("text")
+        svg.append("text")
           .attr("class", "username")
           .attr("text-anchor", "end")
-          .attr("x", width)
-          .attr("y", height + 45)
+          .attr("x", width + margin.left + margin.right - margin.right + 60)
+          .attr("y", height + margin.top + margin.bottom - 15)
           .text("mzhang773");
       }
       
